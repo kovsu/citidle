@@ -3,18 +3,32 @@ import confetti from 'canvas-confetti'
 import Char from './components/Char.vue'
 import Map from './components/Map.vue'
 import { cityMap } from './cityMap'
+import { pinyin } from 'pinyin-pro';
 
-import { startListen } from 'blive-message-listener/browser'
-import { type MsgHandler } from 'blive-message-listener'
+// import { startListen } from 'blive-message-listener/browser'
+// import { type MsgHandler } from 'blive-message-listener'
 
 interface CharCheck {
   char: string
-  status: 'right' | 'wrong' | 'normal'
+  // 声母
+  initialStatus: 'right' | 'wrong' | 'normal'
+  // 韵母
+  finalStatus: 'right' | 'wrong' | 'normal'
+  // 声调
+  numStatus: 'right' | 'wrong' | 'normal'
 }
 
 interface Check {
   word: CharCheck[]
   location: string
+}
+
+interface CharDetail {
+  char: string
+  pinyinNum: string
+  pinyinInitial: string
+  pinyinFinal: string
+  pinyinFinalNoTone: string
 }
 
 let text = $ref('')
@@ -23,15 +37,15 @@ const history = $ref<any>([])
 const resultArr = $ref<Check[]>([])
 const log = $ref<string[]>([])
 
-const handler: MsgHandler = {
-onIncomeDanmu: (msg) => {
-  console.log(msg.id, msg.body.content)
-  log.push(`${msg.body.user.uname}: ${msg.body.content}`)
-  text = msg.body.content
-  handleClick()
-},
-}
-startListen(652581, handler)
+// const handler: MsgHandler = {
+//   onIncomeDanmu: (msg) => {
+//     console.log(msg.id, msg.body.content)
+//     log.push(`${msg.body.user.uname}: ${msg.body.content}`)
+//     text = msg.body.content
+//     handleClick()
+//   },
+// }
+// startListen(652581, handler)
 
 const handleClick = () => {
   if (!cityMap[text]) {
@@ -63,27 +77,64 @@ const answerIndex = Math.floor(Math.random() * Object.keys(cityMap).length)
 const answer = Object.keys(cityMap)[answerIndex]
 const answerCenter = cityMap[answer]
 
+const getCharInfo = (char: string): CharDetail => {
+  return {
+    char,
+    pinyinNum: pinyin(char, { pattern: 'num' }),
+    pinyinInitial: pinyin(char, { pattern: 'initial' }),
+    pinyinFinal: pinyin(char, { pattern: 'final' }),
+    pinyinFinalNoTone: pinyin(char, { pattern: 'final', toneType: 'none' }),
+  }
+}
+
+const answerDetail: CharDetail[] = []
+
+answer.split('').forEach((char) => {
+  answerDetail.push(getCharInfo(char))
+})
+
+
+
 const checkWord = (word: string) => {
   const charArr = word.split('')
-  const answerArr = answer.split('')
   const wordCheckResult: CharCheck[] = []
+
   charArr.forEach((char, index) => {
-    if (char === answerArr[index]) {
-      wordCheckResult.push({
-        char,
-        status: 'right',
-      })
-    } else if (answerArr.includes(char)) {
-      wordCheckResult.push({
-        char,
-        status: 'wrong',
-      })
-    } else {
-      wordCheckResult.push({
-        char,
-        status: 'normal',
-      })
+
+    const charDetail = getCharInfo(char);
+    const result: CharCheck = {
+      char,
+      initialStatus: 'wrong',
+      finalStatus: 'wrong',
+      numStatus: 'wrong',
     }
+    answerDetail.forEach((i, _index) => {
+
+      if (index === _index) {
+        if (charDetail.pinyinFinalNoTone === i.pinyinFinalNoTone) {
+          result.finalStatus = 'right'
+        }
+        if (charDetail.pinyinInitial === i.pinyinInitial) {
+          result.initialStatus = 'right'
+        }
+        if (charDetail.pinyinNum === i.pinyinNum) {
+          result.numStatus = 'right'
+        }
+      } else {
+        if (charDetail.pinyinFinalNoTone === i.pinyinFinalNoTone && result.finalStatus !== "right") {
+          result.finalStatus = 'normal'
+        }
+        if (charDetail.pinyinInitial === i.pinyinInitial && result.initialStatus !== "right") {
+          result.initialStatus = 'normal'
+        }
+        if (charDetail.pinyinNum === i.pinyinNum && result.numStatus !== "right") {
+          result.numStatus = 'normal'
+        }
+      }
+    })
+
+    wordCheckResult.push(result)
+
   })
   const locationCheckResult = checkLatLng(cityMap[word])
   return {
@@ -132,6 +183,7 @@ const checkLatLng = ([lat, lng]: [number, number]) => {
   return ''
 }
 
+
 </script>
 
 <template>
@@ -146,7 +198,8 @@ const checkLatLng = ([lat, lng]: [number, number]) => {
   <p text-sm text-white v-for="logItem in log">{{ logItem }}</p>
   <div pos-absolute top-4 left-4>
     <div v-for="prompt in resultArr">
-      <Char v-for="item in prompt.word" :char="item.char" :result="item.status" />
+      <Char v-for="(item, index) in prompt.word" :char="getCharInfo(item.char)" :origin="answer[index]"
+        :result="item" />
       <p text-white text-2xl>{{ prompt.location }}</p>
     </div>
   </div>

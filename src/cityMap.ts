@@ -1,4 +1,4 @@
-const cityMap: Record<string, [number, number]> = {
+export const cityMap: Record<string, [number, number]> = {
   '北京': [40.1824, 116.4142],
   '上海': [31.2304, 121.4737],
   '广州': [23.1291, 113.2644],
@@ -126,8 +126,4 @@ const cityMap: Record<string, [number, number]> = {
   '鹰潭': [28.23, 117.06],
   '萍乡': [27.62, 113.85],
   '新余': [27.81, 114.92],
-}
-
-export {
-  cityMap,
 }
